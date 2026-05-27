@@ -9,9 +9,9 @@
       --bg: #f4f4f5;
       --card: #ffffff;
       --ink: #18181b;
-      --muted: #71717a;
+      --muted: #5f6074;
+      --soft: #e9e9ee;
       --line: #d4d4d8;
-      --soft: #e4e4e7;
     }
     * { box-sizing: border-box; }
     body {
@@ -21,56 +21,57 @@
       color: var(--ink);
     }
     main {
-      max-width: 1280px;
+      max-width: 1180px;
       margin: 0 auto;
-      padding: 32px 18px;
+      padding: 28px 18px;
     }
-    header { margin-bottom: 24px; }
     .eyebrow {
       color: var(--muted);
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 0.8rem;
-      font-weight: 700;
+      letter-spacing: 0.16em;
+      font-size: 0.72rem;
+      font-weight: 800;
     }
     h1 {
-      margin: 6px 0;
-      font-size: clamp(2rem, 5vw, 4rem);
-      line-height: 1;
+      margin: 6px 0 12px;
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
     }
-    h2 { margin: 0 0 4px; }
+    h2 { margin: 0 0 12px; font-size: 1.55rem; }
     p { color: var(--muted); line-height: 1.5; }
     .grid {
       display: grid;
-      grid-template-columns: 1.25fr 0.9fr;
+      grid-template-columns: 1.18fr 0.82fr;
       gap: 22px;
+      margin-top: 20px;
     }
     .bottom-grid {
       display: grid;
-      grid-template-columns: 2fr 1fr;
+      grid-template-columns: 1.6fr 0.8fr;
       gap: 22px;
       margin-top: 22px;
     }
     .card {
       background: var(--card);
       border-radius: 22px;
-      padding: 20px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+      padding: 22px;
+      box-shadow: 0 8px 26px rgba(0,0,0,0.055);
     }
     .toolbar, .button-row {
       display: flex;
       flex-wrap: wrap;
-      align-items: center;
       gap: 10px;
+      align-items: center;
       margin: 12px 0;
     }
     button {
       border: 0;
       border-radius: 999px;
-      padding: 10px 14px;
+      padding: 10px 15px;
       background: var(--soft);
       color: var(--ink);
-      font-weight: 650;
+      font-weight: 700;
       cursor: pointer;
     }
     button.active {
@@ -84,6 +85,7 @@
     svg {
       width: 100%;
       height: auto;
+      display: block;
       background: white;
       border-radius: 18px;
       touch-action: none;
@@ -92,44 +94,29 @@
     .controls {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
+      gap: 18px;
+      margin: 8px 0 18px;
     }
     label {
       display: block;
       font-size: 0.92rem;
-      font-weight: 650;
-    }
-    .range-row {
-      display: grid;
-      grid-template-columns: 1fr 92px;
-      gap: 12px;
-      align-items: center;
-    }
-    input[type="number"] {
-      width: 92px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 8px 10px;
-      font: inherit;
-      font-weight: 650;
-    }
-    .unit {
-      color: var(--muted);
-      font-weight: 600;
-      margin-left: 3px;
+      font-weight: 700;
     }
     .label-row {
       display: flex;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
     input[type="range"] { width: 100%; }
+    .unit { color: var(--muted); font-weight: 600; margin-left: 4px; }
     .note {
+      margin-top: 12px;
       background: var(--bg);
       border-radius: 14px;
       padding: 14px;
       color: var(--ink);
+      min-height: 64px;
     }
     @media (max-width: 900px) {
       .grid, .bottom-grid, .controls { grid-template-columns: 1fr; }
@@ -167,32 +154,20 @@
         <h2>Controls</h2>
         <div class="controls">
           <label>
-            <div class="label-row"><span>Base circle radius <span class="unit">(mm)</span></span></div>
-            <div class="range-row">
-              <input id="baseRadius" type="range" min="35" max="110" step="1" />
-              <input id="baseRadiusNumber" type="number" min="35" max="110" step="1" />
-            </div>
+            <div class="label-row"><span>Base circle radius <span class="unit">(mm)</span></span><strong id="baseRadiusValue"></strong></div>
+            <input id="baseRadius" type="range" min="35" max="110" step="1" />
           </label>
           <label>
-            <div class="label-row"><span>Maximum lift scale <span class="unit">(mm)</span></span></div>
-            <div class="range-row">
-              <input id="maxLift" type="range" min="20" max="90" step="1" />
-              <input id="maxLiftNumber" type="number" min="20" max="90" step="1" />
-            </div>
+            <div class="label-row"><span>Maximum lift scale <span class="unit">(mm)</span></span><strong id="maxLiftValue"></strong></div>
+            <input id="maxLift" type="range" min="20" max="90" step="1" />
           </label>
           <label id="rollerControl" style="display:none">
-            <div class="label-row"><span>Roller radius <span class="unit">(mm)</span></span></div>
-            <div class="range-row">
-              <input id="rollerRadius" type="range" min="4" max="24" step="1" />
-              <input id="rollerRadiusNumber" type="number" min="4" max="24" step="1" />
-            </div>
+            <div class="label-row"><span>Roller radius <span class="unit">(mm)</span></span><strong id="rollerRadiusValue"></strong></div>
+            <input id="rollerRadius" type="range" min="4" max="24" step="1" />
           </label>
           <label id="flatControl" style="display:none">
-            <div class="label-row"><span>Flat-face width <span class="unit">(mm)</span></span></div>
-            <div class="range-row">
-              <input id="flatFaceWidth" type="range" min="25" max="95" step="1" />
-              <input id="flatFaceWidthNumber" type="number" min="25" max="95" step="1" />
-            </div>
+            <div class="label-row"><span>Flat-face width <span class="unit">(mm)</span></span><strong id="flatFaceWidthValue"></strong></div>
+            <input id="flatFaceWidth" type="range" min="25" max="95" step="1" />
           </label>
         </div>
 
@@ -218,11 +193,9 @@
   </main>
 
   <script>
-    const TWO_PI = Math.PI * 2;
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
     const rad = d => d * Math.PI / 180;
     const deg = r => r * 180 / Math.PI;
-
     const diagram = { w: 640, h: 260, pad: 42 };
     const cam = { w: 460, h: 460, cx: 230, cy: 230 };
 
@@ -281,7 +254,20 @@
       return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
     }
 
-    function pitchSamples(count = 241) {
+    function svgEl(name, attrs) {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", name);
+      Object.entries(attrs || {}).forEach(([k, v]) => el.setAttribute(k, v));
+      return el;
+    }
+
+    function textEl(attrs, text) {
+      const el = svgEl("text", attrs);
+      el.textContent = text;
+      return el;
+    }
+
+    function pitchSamples(count) {
+      count = count || 241;
       return Array.from({ length: count }, (_, i) => {
         const theta = i / (count - 1) * 360;
         const s = interp(points, theta);
@@ -289,8 +275,8 @@
       });
     }
 
-    function profileSamples(count = 241) {
-      const pitch = pitchSamples(count);
+    function profileSamples(count) {
+      const pitch = pitchSamples(count || 241);
       if (followerType === "knife") return pitch;
       if (followerType === "roller") {
         return pitch.map(p => ({ ...p, r: Math.max(5, p.r - rollerRadius) }));
@@ -306,29 +292,23 @@
       });
     }
 
-    function svgEl(name, attrs = {}) {
-      const el = document.createElementNS("http://www.w3.org/2000/svg", name);
-      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-      return el;
-    }
-
     function renderDiagram() {
       const svg = document.getElementById("diagram");
       svg.innerHTML = "";
       [0, 90, 180, 270, 360].forEach(t => {
         const x = diagram.pad + t / 360 * (diagram.w - 2 * diagram.pad);
         svg.appendChild(svgEl("line", { x1: x, y1: diagram.pad, x2: x, y2: diagram.h - diagram.pad, stroke: "#e4e4e7" }));
-        svg.appendChild(svgEl("text", { x, y: diagram.h - 16, "text-anchor": "middle", "font-size": 12, fill: "#71717a" })).textContent = t + "°";
+        svg.appendChild(textEl({ x, y: diagram.h - 16, "text-anchor": "middle", "font-size": 12, fill: "#71717a" }, t + "°"));
       });
       [0, 0.5, 1].forEach(f => {
         const y = diagram.h - diagram.pad - f * (diagram.h - 2 * diagram.pad);
         svg.appendChild(svgEl("line", { x1: diagram.pad, y1: y, x2: diagram.w - diagram.pad, y2: y, stroke: "#e4e4e7" }));
-        svg.appendChild(svgEl("text", { x: 12, y: y + 4, "font-size": 12, fill: "#71717a" })).textContent = Math.round(f * maxLift);
+        svg.appendChild(textEl({ x: 12, y: y + 4, "font-size": 12, fill: "#71717a" }, Math.round(f * maxLift)));
       });
       const path = pitchSamples().map((p, i) => {
         const x = diagram.pad + p.theta / 360 * (diagram.w - 2 * diagram.pad);
         const y = diagram.h - diagram.pad - p.s / maxLift * (diagram.h - 2 * diagram.pad);
-        return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+        return (i === 0 ? "M" : "L") + x.toFixed(2) + "," + y.toFixed(2);
       }).join(" ");
       svg.appendChild(svgEl("path", { d: path, fill: "none", stroke: "#18181b", "stroke-width": 4, "stroke-linecap": "round", "stroke-linejoin": "round" }));
       sortPoints(points).forEach((p, i) => {
@@ -338,7 +318,7 @@
         c.addEventListener("pointerdown", e => { selected = i; dragMode = "diagram"; c.setPointerCapture(e.pointerId); render(); });
         svg.appendChild(c);
       });
-      svg.appendChild(svgEl("text", { x: diagram.w / 2, y: 24, "text-anchor": "middle", "font-size": 13, fill: "#52525b" })).textContent = "Follower displacement s versus cam angle θ";
+      svg.appendChild(textEl({ x: diagram.w / 2, y: 24, "text-anchor": "middle", "font-size": 13, fill: "#52525b" }, "Follower displacement s versus cam angle θ"));
     }
 
     function renderCam() {
@@ -349,12 +329,12 @@
       [0, 90, 180, 270].forEach(t => {
         const q = polarToScreen(cam.cx, cam.cy, maxRadius + 28, t);
         svg.appendChild(svgEl("line", { x1: cam.cx, y1: cam.cy, x2: q.x, y2: q.y, stroke: "#f4f4f5" }));
-        svg.appendChild(svgEl("text", { x: q.x, y: q.y + 4, "text-anchor": "middle", "font-size": 12, fill: "#71717a" })).textContent = t + "°";
+        svg.appendChild(textEl({ x: q.x, y: q.y + 4, "text-anchor": "middle", "font-size": 12, fill: "#71717a" }, t + "°"));
       });
       svg.appendChild(svgEl("circle", { cx: cam.cx, cy: cam.cy, r: baseRadius, fill: "none", stroke: "#71717a", "stroke-dasharray": "6 6" }));
       const path = profileSamples().map((p, i) => {
         const q = polarToScreen(cam.cx, cam.cy, p.r, p.theta);
-        return `${i === 0 ? "M" : "L"}${q.x.toFixed(2)},${q.y.toFixed(2)}`;
+        return (i === 0 ? "M" : "L") + q.x.toFixed(2) + "," + q.y.toFixed(2);
       }).join(" ") + " Z";
       svg.appendChild(svgEl("path", { d: path, fill: "#f4f4f5", stroke: "#18181b", "stroke-width": 4, "stroke-linejoin": "round" }));
       svg.appendChild(svgEl("circle", { cx: cam.cx, cy: cam.cy, r: 5, fill: "#18181b" }));
@@ -382,8 +362,10 @@
 
     function pointerToDiagram(e) {
       const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      const sx = diagram.w / rect.width;
+      const sy = diagram.h / rect.height;
+      const x = (e.clientX - rect.left) * sx;
+      const y = (e.clientY - rect.top) * sy;
       return {
         theta: clamp((x - diagram.pad) / (diagram.w - 2 * diagram.pad) * 360, 0, 360),
         s: clamp((diagram.h - diagram.pad - y) / (diagram.h - 2 * diagram.pad) * maxLift, 0, maxLift)
@@ -409,68 +391,36 @@
       });
       const baseCircle = Array.from({ length: 361 }, (_, i) => ({ x: baseRadius * Math.cos(rad(i)), y: baseRadius * Math.sin(rad(i)) }));
       const polyline = (layer, pts) => ["0", "POLYLINE", "8", layer, "66", "1", "70", "1", ...pts.flatMap(p => ["0", "VERTEX", "8", layer, "10", p.x.toFixed(4), "20", p.y.toFixed(4), "30", "0"]), "0", "SEQEND"];
-      const dxf = ["0", "SECTION", "2", "HEADER", "9", "$ACADVER", "1", "AC1009", "0", "ENDSEC", "0", "SECTION", "2", "ENTITIES", ...polyline("CAM_PROFILE", samples), ...polyline("BASE_CIRCLE", baseCircle), "0", "CIRCLE", "8", "CENTRE_MARK", "10", "0", "20", "0", "30", "0", "40", "2", "0", "ENDSEC", "0", "EOF"].join("
-");
+      const dxf = ["0", "SECTION", "2", "HEADER", "9", "$ACADVER", "1", "AC1009", "0", "ENDSEC", "0", "SECTION", "2", "ENTITIES", ...polyline("CAM_PROFILE", samples), ...polyline("BASE_CIRCLE", baseCircle), "0", "CIRCLE", "8", "CENTRE_MARK", "10", "0", "20", "0", "30", "0", "40", "2", "0", "ENDSEC", "0", "EOF"].join("\n");
       const blob = new Blob([dxf], { type: "application/dxf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `cam-profile-${followerType}.dxf`;
+      a.download = "cam-profile-" + followerType + ".dxf";
       a.click();
       URL.revokeObjectURL(url);
     }
 
     function render() {
-      const setValue = (id, value) => {
-        const el = document.getElementById(id);
-        if (el) el.value = value;
-      };
-      const setText = (id, value) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = value;
-      };
-      const setDisplay = (id, value) => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = value;
-      };
-
-      setValue("baseRadius", baseRadius);
-      setValue("maxLift", maxLift);
-      setValue("rollerRadius", rollerRadius);
-      setValue("flatFaceWidth", flatFaceWidth);
-      setValue("baseRadiusNumber", baseRadius);
-      setValue("maxLiftNumber", maxLift);
-      setValue("rollerRadiusNumber", rollerRadius);
-      setValue("flatFaceWidthNumber", flatFaceWidth);
-
-      setText("baseRadiusValue", baseRadius);
-      setText("maxLiftValue", maxLift);
-      setText("rollerRadiusValue", rollerRadius);
-      setText("flatFaceWidthValue", flatFaceWidth);
-
-      setDisplay("rollerControl", followerType === "roller" ? "block" : "none");
-      setDisplay("flatControl", followerType === "flat" ? "block" : "none");
-
-      const removeButton = document.getElementById("removePoint");
-      if (removeButton) removeButton.disabled = selected === null || selected === 0 || selected === points.length - 1 || points.length <= 4;
-
-      const smoothButton = document.getElementById("toggleSmooth");
-      if (smoothButton) {
-        smoothButton.textContent = smoothing ? "Smooth motion on" : "Linear motion on";
-        smoothButton.classList.toggle("active", smoothing);
-      }
-
+      document.getElementById("baseRadius").value = baseRadius;
+      document.getElementById("maxLift").value = maxLift;
+      document.getElementById("rollerRadius").value = rollerRadius;
+      document.getElementById("flatFaceWidth").value = flatFaceWidth;
+      document.getElementById("baseRadiusValue").textContent = baseRadius;
+      document.getElementById("maxLiftValue").textContent = maxLift;
+      document.getElementById("rollerRadiusValue").textContent = rollerRadius;
+      document.getElementById("flatFaceWidthValue").textContent = flatFaceWidth;
+      document.getElementById("rollerControl").style.display = followerType === "roller" ? "block" : "none";
+      document.getElementById("flatControl").style.display = followerType === "flat" ? "block" : "none";
+      document.getElementById("removePoint").disabled = selected === null || selected === 0 || selected === points.length - 1 || points.length <= 4;
+      document.getElementById("toggleSmooth").textContent = smoothing ? "Smooth motion on" : "Linear motion on";
+      document.getElementById("toggleSmooth").classList.toggle("active", smoothing);
       document.querySelectorAll(".follower").forEach(b => b.classList.toggle("active", b.dataset.type === followerType));
-
-      const note = document.getElementById("followerNote");
-      if (note) {
-        note.innerHTML = followerType === "knife"
-          ? "<strong>Knife-edge:</strong><br>The cam profile follows the pitch curve directly."
-          : followerType === "roller"
-            ? "<strong>Roller:</strong><br>The cam profile is offset inward from the roller-centre pitch curve."
-            : "<strong>Flat-faced:</strong><br>The profile shown is an educational approximation of the flat-face contact envelope.";
-      }
-
+      document.getElementById("followerNote").innerHTML = followerType === "knife"
+        ? "<strong>Knife-edge:</strong><br>The cam profile follows the pitch curve directly."
+        : followerType === "roller"
+          ? "<strong>Roller:</strong><br>The cam profile is offset inward from the roller-centre pitch curve."
+          : "<strong>Flat-faced:</strong><br>The profile shown is an educational approximation of the flat-face contact envelope.";
       renderDiagram();
       renderCam();
     }
@@ -478,7 +428,6 @@
     document.getElementById("diagram").addEventListener("pointermove", e => { if (dragMode === "diagram" && selected !== null) updatePoint(selected, pointerToDiagram(e)); });
     document.getElementById("cam").addEventListener("pointermove", e => { if (dragMode === "cam" && selected !== null) updatePoint(selected, pointerToCam(e)); });
     window.addEventListener("pointerup", () => dragMode = null);
-
     document.getElementById("addPoint").onclick = () => {
       const theta = 180;
       points = sortPoints([...points, { theta, s: interp(points, theta) }]);
@@ -490,21 +439,10 @@
       selected = null;
       render();
     };
-    function bindNumericControl(rangeId, numberId, min, max, setter) {
-      const update = value => {
-        const clean = clamp(Number(value), min, max);
-        setter(clean);
-        render();
-      };
-      document.getElementById(rangeId).oninput = e => update(e.target.value);
-      document.getElementById(numberId).oninput = e => update(e.target.value);
-      document.getElementById(numberId).onchange = e => update(e.target.value);
-    }
-
-    bindNumericControl("baseRadius", "baseRadiusNumber", 35, 110, v => baseRadius = v);
-    bindNumericControl("maxLift", "maxLiftNumber", 20, 90, v => maxLift = v);
-    bindNumericControl("rollerRadius", "rollerRadiusNumber", 4, 24, v => rollerRadius = v);
-    bindNumericControl("flatFaceWidth", "flatFaceWidthNumber", 25, 95, v => flatFaceWidth = v);
+    document.getElementById("baseRadius").oninput = e => { baseRadius = Number(e.target.value); render(); };
+    document.getElementById("maxLift").oninput = e => { maxLift = Number(e.target.value); render(); };
+    document.getElementById("rollerRadius").oninput = e => { rollerRadius = Number(e.target.value); render(); };
+    document.getElementById("flatFaceWidth").oninput = e => { flatFaceWidth = Number(e.target.value); render(); };
     document.getElementById("toggleSmooth").onclick = () => { smoothing = !smoothing; render(); };
     document.getElementById("reset").onclick = () => { resetState(); render(); };
     document.getElementById("exportDxf").onclick = downloadDxf;
