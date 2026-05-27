@@ -1,0 +1,275 @@
+import React, { useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { RotateCcw, Download, Info } from "lucide-react";
+
+const TWO_PI = Math.PI * 2;
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const deg = (rad) => (rad * 180) / Math.PI;
+const rad = (deg) => (deg * Math.PI) / 180;
+
+function defaultPoints() {
+  return [
+    { theta: 0, s: 0 },
+    { theta: 60, s: 0 },
+    { theta: 120, s: 38 },
+    { theta: 180, s: 38 },
+    { theta: 260, s: 0 },
+    { theta: 360, s: 0 },
+  ];
+}
+
+function sortPoints(points) {
+  const sorted = [...points].sort((a, b) => a.theta - b.theta);
+  sorted[0] = { ...sorted[0], theta: 0 };
+  sorted[sorted.length - 1] = { ...sorted[sorted.length - 1], theta: 360 };
+  return sorted;
+}
+
+function smoothstep(t) {
+  return t * t * (3 - 2 * t);
+}
+
+function interp(points, theta, smoothing) {
+  const pts = sortPoints(points);
+  const x = ((theta % 360) + 360) % 360;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    if (x >= a.theta && x <= b.theta) {
+      const span = Math.max(1e-6, b.theta - a.theta);
+      let t = (x - a.theta) / span;
+      if (smoothing) t = smoothstep(t);
+      return a.s + (b.s - a.s) * t;
+    }
+  }
+  return pts[0].s;
+}
+
+function polarToScreen(cx, cy, r, thetaDeg) {
+  const a = rad(thetaDeg - 90);
+  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+}
+
+function downloadHtml(points, baseRadius, maxLift, smoothing) {
+  const payload = { points, baseRadius, maxLift, smoothing };
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Interactive Cam Explorer</title><style>body{font-family:system-ui;margin:2rem;line-height:1.5;max-width:900px}pre{white-space:pre-wrap;background:#f4f4f5;padding:1rem;border-radius:12px}</style></head><body><h1>Interactive Cam Explorer</h1><p>This exported data can be embedded in the React app or used for student submissions.</p><pre>${JSON.stringify(payload, null, 2)}</pre></body></html>`;
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "cam-explorer-state.html";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export default function CamExplorer() {
+  const [points, setPoints] = useState(defaultPoints());
+  const [baseRadius, setBaseRadius] = useState(70);
+  const [maxLift, setMaxLift] = useState(50);
+  const [smoothing, setSmoothing] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [dragMode, setDragMode] = useState(null);
+
+  const sortedPoints = useMemo(() => sortPoints(points), [points]);
+  const diagram = { w: 640, h: 260, pad: 42 };
+  const cam = { w: 460, h: 460, cx: 230, cy: 230 };
+
+  const profileSamples = useMemo(() => {
+    return Array.from({ length: 241 }, (_, i) => {
+      const theta = (i / 240) * 360;
+      const s = interp(sortedPoints, theta, smoothing);
+      return { theta, s, r: baseRadius + s };
+    });
+  }, [sortedPoints, baseRadius, smoothing]);
+
+  const diagramPath = useMemo(() => {
+    return profileSamples
+      .map((p, i) => {
+        const x = diagram.pad + (p.theta / 360) * (diagram.w - 2 * diagram.pad);
+        const y = diagram.h - diagram.pad - (p.s / maxLift) * (diagram.h - 2 * diagram.pad);
+        return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(" ");
+  }, [profileSamples, maxLift]);
+
+  const camPath = useMemo(() => {
+    return profileSamples
+      .map((p, i) => {
+        const q = polarToScreen(cam.cx, cam.cy, p.r, p.theta);
+        return `${i === 0 ? "M" : "L"}${q.x.toFixed(2)},${q.y.toFixed(2)}`;
+      })
+      .join(" ") + " Z";
+  }, [profileSamples]);
+
+  const updatePoint = (idx, next) => {
+    setPoints((old) => {
+      const copy = [...old];
+      const isEnd = idx === 0 || idx === old.length - 1;
+      copy[idx] = {
+        theta: isEnd ? old[idx].theta : clamp(next.theta, old[idx - 1].theta + 5, old[idx + 1].theta - 5),
+        s: clamp(next.s, 0, maxLift),
+      };
+      copy[copy.length - 1].s = copy[0].s;
+      return copy;
+    });
+  };
+
+  const pointerToDiagram = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    return {
+      theta: clamp(((x - diagram.pad) / (diagram.w - 2 * diagram.pad)) * 360, 0, 360),
+      s: clamp(((diagram.h - diagram.pad - y) / (diagram.h - 2 * diagram.pad)) * maxLift, 0, maxLift),
+    };
+  };
+
+  const pointerToCam = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left - cam.cx;
+    const y = e.clientY - rect.top - cam.cy;
+    const angle = (deg(Math.atan2(y, x)) + 90 + 360) % 360;
+    const radius = Math.sqrt(x * x + y * y);
+    return { theta: angle, s: clamp(radius - baseRadius, 0, maxLift) };
+  };
+
+  const addPoint = () => {
+    const theta = 180;
+    const s = interp(sortedPoints, theta, smoothing);
+    setPoints(sortPoints([...points, { theta, s }]));
+  };
+
+  const removePoint = () => {
+    if (selected === null || points.length <= 4 || selected === 0 || selected === points.length - 1) return;
+    setPoints(points.filter((_, i) => i !== selected));
+    setSelected(null);
+  };
+
+  const maxRadius = baseRadius + maxLift;
+
+  return (
+    <div className="min-h-screen bg-zinc-50 p-4 text-zinc-900 md:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <motion.header initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
+          <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Engineering Graphics</p>
+          <h1 className="text-3xl font-bold tracking-tight md:text-5xl">Interactive Cam Explorer</h1>
+          <p className="max-w-3xl text-base text-zinc-600 md:text-lg">
+            Drag points on the displacement diagram to reshape the cam. Drag matching points on the cam profile to see the displacement diagram update. This model uses a radial plate cam with an in-line translating follower.
+          </p>
+        </motion.header>
+
+        <div className="grid gap-6 lg:grid-cols-[1.25fr_0.9fr]">
+          <Card className="rounded-2xl shadow-sm">
+            <CardContent className="p-5">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold">1. Displacement diagram</h2>
+                  <p className="text-sm text-zinc-500">Horizontal axis: cam rotation angle θ. Vertical axis: follower lift.</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={addPoint} variant="secondary">Add point</Button>
+                  <Button onClick={removePoint} variant="secondary" disabled={selected === null || selected === 0 || selected === points.length - 1}>Remove</Button>
+                </div>
+              </div>
+
+              <svg
+                viewBox={`0 0 ${diagram.w} ${diagram.h}`}
+                className="w-full touch-none rounded-2xl bg-white"
+                onPointerMove={(e) => dragMode === "diagram" && selected !== null && updatePoint(selected, pointerToDiagram(e))}
+                onPointerUp={() => setDragMode(null)}
+                onPointerLeave={() => setDragMode(null)}
+              >
+                <rect x="0" y="0" width={diagram.w} height={diagram.h} rx="18" fill="white" />
+                {[0, 90, 180, 270, 360].map((t) => {
+                  const x = diagram.pad + (t / 360) * (diagram.w - 2 * diagram.pad);
+                  return <g key={t}><line x1={x} y1={diagram.pad} x2={x} y2={diagram.h - diagram.pad} stroke="#e4e4e7" /><text x={x} y={diagram.h - 16} textAnchor="middle" fontSize="12" fill="#71717a">{t}°</text></g>;
+                })}
+                {[0, 0.5, 1].map((f) => {
+                  const y = diagram.h - diagram.pad - f * (diagram.h - 2 * diagram.pad);
+                  return <g key={f}><line x1={diagram.pad} y1={y} x2={diagram.w - diagram.pad} y2={y} stroke="#e4e4e7" /><text x="12" y={y + 4} fontSize="12" fill="#71717a">{Math.round(f * maxLift)}</text></g>;
+                })}
+                <path d={diagramPath} fill="none" stroke="#18181b" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                {sortedPoints.map((p, i) => {
+                  const x = diagram.pad + (p.theta / 360) * (diagram.w - 2 * diagram.pad);
+                  const y = diagram.h - diagram.pad - (p.s / maxLift) * (diagram.h - 2 * diagram.pad);
+                  return <g key={i} onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setSelected(i); setDragMode("diagram"); }} className="cursor-grab">
+                    <circle cx={x} cy={y} r={selected === i ? 10 : 7} fill={selected === i ? "#52525b" : "#a1a1aa"} stroke="white" strokeWidth="3" />
+                    <title>{`θ ${Math.round(p.theta)}°, lift ${p.s.toFixed(1)}`}</title>
+                  </g>;
+                })}
+                <text x={diagram.w / 2} y="24" textAnchor="middle" fontSize="13" fill="#52525b">Follower displacement s versus cam angle θ</text>
+              </svg>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl shadow-sm">
+            <CardContent className="p-5">
+              <h2 className="mb-1 text-xl font-semibold">2. Cam profile</h2>
+              <p className="mb-3 text-sm text-zinc-500">Radius = base circle radius + follower displacement.</p>
+              <svg
+                viewBox={`0 0 ${cam.w} ${cam.h}`}
+                className="w-full touch-none rounded-2xl bg-white"
+                onPointerMove={(e) => dragMode === "cam" && selected !== null && updatePoint(selected, pointerToCam(e))}
+                onPointerUp={() => setDragMode(null)}
+                onPointerLeave={() => setDragMode(null)}
+              >
+                <rect width={cam.w} height={cam.h} rx="18" fill="white" />
+                {[baseRadius, baseRadius + maxLift / 2, maxRadius].map((r, i) => <circle key={i} cx={cam.cx} cy={cam.cy} r={r} fill="none" stroke="#e4e4e7" />)}
+                {[0, 90, 180, 270].map((t) => {
+                  const q = polarToScreen(cam.cx, cam.cy, maxRadius + 28, t);
+                  const p = polarToScreen(cam.cx, cam.cy, 24, t);
+                  return <g key={t}><line x1={cam.cx} y1={cam.cy} x2={q.x} y2={q.y} stroke="#f4f4f5" /><text x={q.x} y={q.y + 4} textAnchor="middle" fontSize="12" fill="#71717a">{t}°</text><circle cx={p.x} cy={p.y} r="2" fill="#a1a1aa" /></g>;
+                })}
+                <circle cx={cam.cx} cy={cam.cy} r={baseRadius} fill="none" stroke="#71717a" strokeDasharray="6 6" />
+                <path d={camPath} fill="#f4f4f5" stroke="#18181b" strokeWidth="4" strokeLinejoin="round" />
+                <circle cx={cam.cx} cy={cam.cy} r="5" fill="#18181b" />
+                {sortedPoints.map((p, i) => {
+                  const q = polarToScreen(cam.cx, cam.cy, baseRadius + p.s, p.theta);
+                  return <g key={i} onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setSelected(i); setDragMode("cam"); }} className="cursor-grab">
+                    <circle cx={q.x} cy={q.y} r={selected === i ? 10 : 7} fill={selected === i ? "#52525b" : "#a1a1aa"} stroke="white" strokeWidth="3" />
+                    <title>{`θ ${Math.round(p.theta)}°, radius ${(baseRadius + p.s).toFixed(1)}`}</title>
+                  </g>;
+                })}
+              </svg>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Card className="rounded-2xl shadow-sm lg:col-span-2">
+            <CardContent className="space-y-5 p-5">
+              <h2 className="text-xl font-semibold">Controls</h2>
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <div className="mb-2 flex justify-between text-sm"><span>Base circle radius</span><strong>{baseRadius}</strong></div>
+                  <Slider value={[baseRadius]} min={35} max={110} step={1} onValueChange={([v]) => setBaseRadius(v)} />
+                </div>
+                <div>
+                  <div className="mb-2 flex justify-between text-sm"><span>Maximum lift scale</span><strong>{maxLift}</strong></div>
+                  <Slider value={[maxLift]} min={20} max={90} step={1} onValueChange={([v]) => setMaxLift(v)} />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => setSmoothing(!smoothing)} variant={smoothing ? "default" : "secondary"}>{smoothing ? "Smooth motion on" : "Linear motion on"}</Button>
+                <Button variant="secondary" onClick={() => { setPoints(defaultPoints()); setSelected(null); }}><RotateCcw className="mr-2 h-4 w-4" />Reset</Button>
+                <Button variant="secondary" onClick={() => downloadHtml(sortedPoints, baseRadius, maxLift, smoothing)}><Download className="mr-2 h-4 w-4" />Export state</Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl shadow-sm">
+            <CardContent className="space-y-3 p-5">
+              <div className="flex items-center gap-2"><Info className="h-5 w-5" /><h2 className="text-xl font-semibold">Teaching notes</h2></div>
+              <p className="text-sm text-zinc-600">For a radial cam with an in-line translating follower, each angle on the displacement diagram maps to a radius on the cam profile.</p>
+              <p className="rounded-xl bg-zinc-100 p-3 text-sm"><strong>Core relationship:</strong><br />cam radius r(θ) = base radius + lift s(θ)</p>
+              <p className="text-sm text-zinc-600">Try creating dwell, rise, return, and another dwell. Notice how steep changes in displacement create rapid changes in the profile.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
