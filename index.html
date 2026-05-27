@@ -53,12 +53,26 @@ function polarToScreen(cx, cy, r, thetaDeg) {
   return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
 }
 
-function downloadDxf(points, baseRadius, maxLift, smoothing) {
-  const samples = Array.from({ length: 361 }, (_, i) => {
+function downloadDxf(points, baseRadius, maxLift, smoothing, followerType = "knife", rollerRadius = 10, flatFaceWidth = 55) {
+  const pitch = Array.from({ length: 361 }, (_, i) => {
     const theta = i;
     const s = interp(points, theta, smoothing);
-    const r = baseRadius + s;
-    const a = rad(theta);
+    return { theta, s, r: baseRadius + s };
+  });
+
+  const samples = pitch.map((p, i) => {
+    let r = p.r;
+    if (followerType === "roller") r = Math.max(5, p.r - rollerRadius);
+    if (followerType === "flat") {
+      const prev = pitch[Math.max(0, i - 1)];
+      const next = pitch[Math.min(pitch.length - 1, i + 1)];
+      const ds = next.s - prev.s;
+      const dtheta = rad(Math.max(1, next.theta - prev.theta));
+      const slope = ds / dtheta;
+      const offset = clamp(slope * 0.18, -flatFaceWidth / 2, flatFaceWidth / 2);
+      r = Math.max(5, p.r - Math.abs(offset) * 0.22);
+    }
+    const a = rad(p.theta);
     return {
       x: r * Math.cos(a),
       y: r * Math.sin(a),
@@ -123,6 +137,9 @@ export default function CamExplorer() {
   const [baseRadius, setBaseRadius] = useState(70);
   const [maxLift, setMaxLift] = useState(50);
   const [smoothing, setSmoothing] = useState(true);
+  const [followerType, setFollowerType] = useState("knife");
+  const [rollerRadius, setRollerRadius] = useState(10);
+  const [flatFaceWidth, setFlatFaceWidth] = useState(55);
   const [selected, setSelected] = useState(null);
   const [dragMode, setDragMode] = useState(null);
 
@@ -130,13 +147,40 @@ export default function CamExplorer() {
   const diagram = { w: 640, h: 260, pad: 42 };
   const cam = { w: 460, h: 460, cx: 230, cy: 230 };
 
-  const profileSamples = useMemo(() => {
+  const pitchSamples = useMemo(() => {
     return Array.from({ length: 241 }, (_, i) => {
       const theta = (i / 240) * 360;
       const s = interp(sortedPoints, theta, smoothing);
       return { theta, s, r: baseRadius + s };
     });
   }, [sortedPoints, baseRadius, smoothing]);
+
+  const profileSamples = useMemo(() => {
+    if (followerType === "knife") return pitchSamples;
+
+    if (followerType === "roller") {
+      return pitchSamples.map((p) => ({
+        ...p,
+        r: Math.max(5, p.r - rollerRadius),
+      }));
+    }
+
+    // Simplified flat-faced follower envelope.
+    // The contact point is offset according to the slope of the displacement curve.
+    return pitchSamples.map((p, i) => {
+      const prev = pitchSamples[Math.max(0, i - 1)];
+      const next = pitchSamples[Math.min(pitchSamples.length - 1, i + 1)];
+      const ds = next.s - prev.s;
+      const dtheta = rad(Math.max(1, next.theta - prev.theta));
+      const slope = ds / dtheta;
+      const offset = clamp(slope * 0.18, -flatFaceWidth / 2, flatFaceWidth / 2);
+      return {
+        ...p,
+        r: Math.max(5, p.r - Math.abs(offset) * 0.22),
+        faceOffset: offset,
+      };
+    });
+  }, [pitchSamples, followerType, rollerRadius, flatFaceWidth]);
 
   const diagramPath = useMemo(() => {
     return profileSamples
@@ -304,11 +348,32 @@ export default function CamExplorer() {
                   <div className="mb-2 flex justify-between text-sm"><span>Maximum lift scale</span><strong>{maxLift}</strong></div>
                   <Slider value={[maxLift]} min={20} max={90} step={1} onValueChange={([v]) => setMaxLift(v)} />
                 </div>
+                {followerType === "roller" && (
+                  <div>
+                    <div className="mb-2 flex justify-between text-sm"><span>Roller radius</span><strong>{rollerRadius}</strong></div>
+                    <Slider value={[rollerRadius]} min={4} max={24} step={1} onValueChange={([v]) => setRollerRadius(v)} />
+                  </div>
+                )}
+                {followerType === "flat" && (
+                  <div>
+                    <div className="mb-2 flex justify-between text-sm"><span>Flat-face width</span><strong>{flatFaceWidth}</strong></div>
+                    <Slider value={[flatFaceWidth]} min={25} max={95} step={1} onValueChange={([v]) => setFlatFaceWidth(v)} />
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  ["knife", "Knife-edge"],
+                  ["roller", "Roller"],
+                  ["flat", "Flat-faced"],
+                ].map(([value, label]) => (
+                  <Button key={value} onClick={() => setFollowerType(value)} variant={followerType === value ? "default" : "secondary"}>{label}</Button>
+                ))}
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button onClick={() => setSmoothing(!smoothing)} variant={smoothing ? "default" : "secondary"}>{smoothing ? "Smooth motion on" : "Linear motion on"}</Button>
                 <Button variant="secondary" onClick={() => { setPoints(defaultPoints()); setSelected(null); }}><RotateCcw className="mr-2 h-4 w-4" />Reset</Button>
-                <Button variant="secondary" onClick={() => downloadDxf(sortedPoints, baseRadius, maxLift, smoothing)}><Download className="mr-2 h-4 w-4" />Export DXF</Button>
+                <Button variant="secondary" onClick={() => downloadDxf(sortedPoints, baseRadius, maxLift, smoothing, followerType, rollerRadius, flatFaceWidth)}><Download className="mr-2 h-4 w-4" />Export DXF</Button>
               </div>
             </CardContent>
           </Card>
@@ -316,8 +381,8 @@ export default function CamExplorer() {
           <Card className="rounded-2xl shadow-sm">
             <CardContent className="space-y-3 p-5">
               <div className="flex items-center gap-2"><Info className="h-5 w-5" /><h2 className="text-xl font-semibold">Teaching notes</h2></div>
-              <p className="text-sm text-zinc-600">For a radial cam with an in-line translating follower, each angle on the displacement diagram maps to a radius on the cam profile.</p>
-              <p className="rounded-xl bg-zinc-100 p-3 text-sm"><strong>Core relationship:</strong><br />cam radius r(θ) = base radius + lift s(θ)</p>
+              <p className="text-sm text-zinc-600">For a radial cam with an in-line translating follower, each angle on the displacement diagram maps to a pitch curve radius. The visible profile changes with follower type.</p>
+              <p className="rounded-xl bg-zinc-100 p-3 text-sm"><strong>Current follower:</strong><br />{followerType === "knife" && "Knife-edge: cam profile follows the pitch curve directly."}{followerType === "roller" && "Roller: the cam profile is offset inward from the roller-centre pitch curve."}{followerType === "flat" && "Flat-faced: the profile is approximated from the flat-face contact envelope."}</p>
               <p className="text-sm text-zinc-600">Try creating dwell, rise, return, and another dwell. Notice how steep changes in displacement create rapid changes in the profile.</p>
             </CardContent>
           </Card>
