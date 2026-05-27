@@ -99,6 +99,25 @@
       font-size: 0.92rem;
       font-weight: 650;
     }
+    .range-row {
+      display: grid;
+      grid-template-columns: 1fr 92px;
+      gap: 12px;
+      align-items: center;
+    }
+    input[type="number"] {
+      width: 92px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font: inherit;
+      font-weight: 650;
+    }
+    .unit {
+      color: var(--muted);
+      font-weight: 600;
+      margin-left: 3px;
+    }
     .label-row {
       display: flex;
       justify-content: space-between;
@@ -148,20 +167,32 @@
         <h2>Controls</h2>
         <div class="controls">
           <label>
-            <div class="label-row"><span>Base circle radius</span><strong id="baseRadiusValue"></strong></div>
-            <input id="baseRadius" type="range" min="35" max="110" step="1" />
+            <div class="label-row"><span>Base circle radius <span class="unit">(mm)</span></span></div>
+            <div class="range-row">
+              <input id="baseRadius" type="range" min="35" max="110" step="1" />
+              <input id="baseRadiusNumber" type="number" min="35" max="110" step="1" />
+            </div>
           </label>
           <label>
-            <div class="label-row"><span>Maximum lift scale</span><strong id="maxLiftValue"></strong></div>
-            <input id="maxLift" type="range" min="20" max="90" step="1" />
+            <div class="label-row"><span>Maximum lift scale <span class="unit">(mm)</span></span></div>
+            <div class="range-row">
+              <input id="maxLift" type="range" min="20" max="90" step="1" />
+              <input id="maxLiftNumber" type="number" min="20" max="90" step="1" />
+            </div>
           </label>
           <label id="rollerControl" style="display:none">
-            <div class="label-row"><span>Roller radius</span><strong id="rollerRadiusValue"></strong></div>
-            <input id="rollerRadius" type="range" min="4" max="24" step="1" />
+            <div class="label-row"><span>Roller radius <span class="unit">(mm)</span></span></div>
+            <div class="range-row">
+              <input id="rollerRadius" type="range" min="4" max="24" step="1" />
+              <input id="rollerRadiusNumber" type="number" min="4" max="24" step="1" />
+            </div>
           </label>
           <label id="flatControl" style="display:none">
-            <div class="label-row"><span>Flat-face width</span><strong id="flatFaceWidthValue"></strong></div>
-            <input id="flatFaceWidth" type="range" min="25" max="95" step="1" />
+            <div class="label-row"><span>Flat-face width <span class="unit">(mm)</span></span></div>
+            <div class="range-row">
+              <input id="flatFaceWidth" type="range" min="25" max="95" step="1" />
+              <input id="flatFaceWidthNumber" type="number" min="25" max="95" step="1" />
+            </div>
           </label>
         </div>
 
@@ -378,7 +409,8 @@
       });
       const baseCircle = Array.from({ length: 361 }, (_, i) => ({ x: baseRadius * Math.cos(rad(i)), y: baseRadius * Math.sin(rad(i)) }));
       const polyline = (layer, pts) => ["0", "POLYLINE", "8", layer, "66", "1", "70", "1", ...pts.flatMap(p => ["0", "VERTEX", "8", layer, "10", p.x.toFixed(4), "20", p.y.toFixed(4), "30", "0"]), "0", "SEQEND"];
-      const dxf = ["0", "SECTION", "2", "HEADER", "9", "$ACADVER", "1", "AC1009", "0", "ENDSEC", "0", "SECTION", "2", "ENTITIES", ...polyline("CAM_PROFILE", samples), ...polyline("BASE_CIRCLE", baseCircle), "0", "CIRCLE", "8", "CENTRE_MARK", "10", "0", "20", "0", "30", "0", "40", "2", "0", "ENDSEC", "0", "EOF"].join("\n");
+      const dxf = ["0", "SECTION", "2", "HEADER", "9", "$ACADVER", "1", "AC1009", "0", "ENDSEC", "0", "SECTION", "2", "ENTITIES", ...polyline("CAM_PROFILE", samples), ...polyline("BASE_CIRCLE", baseCircle), "0", "CIRCLE", "8", "CENTRE_MARK", "10", "0", "20", "0", "30", "0", "40", "2", "0", "ENDSEC", "0", "EOF"].join("
+");
       const blob = new Blob([dxf], { type: "application/dxf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -393,10 +425,10 @@
       document.getElementById("maxLift").value = maxLift;
       document.getElementById("rollerRadius").value = rollerRadius;
       document.getElementById("flatFaceWidth").value = flatFaceWidth;
-      document.getElementById("baseRadiusValue").textContent = baseRadius;
-      document.getElementById("maxLiftValue").textContent = maxLift;
-      document.getElementById("rollerRadiusValue").textContent = rollerRadius;
-      document.getElementById("flatFaceWidthValue").textContent = flatFaceWidth;
+      document.getElementById("baseRadiusNumber").value = baseRadius;
+      document.getElementById("maxLiftNumber").value = maxLift;
+      document.getElementById("rollerRadiusNumber").value = rollerRadius;
+      document.getElementById("flatFaceWidthNumber").value = flatFaceWidth;
       document.getElementById("rollerControl").style.display = followerType === "roller" ? "block" : "none";
       document.getElementById("flatControl").style.display = followerType === "flat" ? "block" : "none";
       document.getElementById("removePoint").disabled = selected === null || selected === 0 || selected === points.length - 1 || points.length <= 4;
@@ -427,10 +459,21 @@
       selected = null;
       render();
     };
-    document.getElementById("baseRadius").oninput = e => { baseRadius = Number(e.target.value); render(); };
-    document.getElementById("maxLift").oninput = e => { maxLift = Number(e.target.value); render(); };
-    document.getElementById("rollerRadius").oninput = e => { rollerRadius = Number(e.target.value); render(); };
-    document.getElementById("flatFaceWidth").oninput = e => { flatFaceWidth = Number(e.target.value); render(); };
+    function bindNumericControl(rangeId, numberId, min, max, setter) {
+      const update = value => {
+        const clean = clamp(Number(value), min, max);
+        setter(clean);
+        render();
+      };
+      document.getElementById(rangeId).oninput = e => update(e.target.value);
+      document.getElementById(numberId).oninput = e => update(e.target.value);
+      document.getElementById(numberId).onchange = e => update(e.target.value);
+    }
+
+    bindNumericControl("baseRadius", "baseRadiusNumber", 35, 110, v => baseRadius = v);
+    bindNumericControl("maxLift", "maxLiftNumber", 20, 90, v => maxLift = v);
+    bindNumericControl("rollerRadius", "rollerRadiusNumber", 4, 24, v => rollerRadius = v);
+    bindNumericControl("flatFaceWidth", "flatFaceWidthNumber", 25, 95, v => flatFaceWidth = v);
     document.getElementById("toggleSmooth").onclick = () => { smoothing = !smoothing; render(); };
     document.getElementById("reset").onclick = () => { resetState(); render(); };
     document.getElementById("exportDxf").onclick = downloadDxf;
