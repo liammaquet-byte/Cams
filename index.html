@@ -139,7 +139,7 @@
 <body>
   <main>
     <header>
-      <div class="eyebrow">Engineering Graphics</div>
+      <div class="eyebrow">Design and Communication Graphics</div>
       <h1>Interactive Cam Explorer</h1>
       <p>Drag points on the displacement diagram to reshape the cam. Drag matching points on the cam profile to update the displacement diagram. This model uses a radial plate cam with an in-line translating follower.</p>
     </header>
@@ -421,25 +421,56 @@
     }
 
     function render() {
-      document.getElementById("baseRadius").value = baseRadius;
-      document.getElementById("maxLift").value = maxLift;
-      document.getElementById("rollerRadius").value = rollerRadius;
-      document.getElementById("flatFaceWidth").value = flatFaceWidth;
-      document.getElementById("baseRadiusNumber").value = baseRadius;
-      document.getElementById("maxLiftNumber").value = maxLift;
-      document.getElementById("rollerRadiusNumber").value = rollerRadius;
-      document.getElementById("flatFaceWidthNumber").value = flatFaceWidth;
-      document.getElementById("rollerControl").style.display = followerType === "roller" ? "block" : "none";
-      document.getElementById("flatControl").style.display = followerType === "flat" ? "block" : "none";
-      document.getElementById("removePoint").disabled = selected === null || selected === 0 || selected === points.length - 1 || points.length <= 4;
-      document.getElementById("toggleSmooth").textContent = smoothing ? "Smooth motion on" : "Linear motion on";
-      document.getElementById("toggleSmooth").classList.toggle("active", smoothing);
+      const setValue = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value;
+      };
+      const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+      };
+      const setDisplay = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = value;
+      };
+
+      setValue("baseRadius", baseRadius);
+      setValue("maxLift", maxLift);
+      setValue("rollerRadius", rollerRadius);
+      setValue("flatFaceWidth", flatFaceWidth);
+      setValue("baseRadiusNumber", baseRadius);
+      setValue("maxLiftNumber", maxLift);
+      setValue("rollerRadiusNumber", rollerRadius);
+      setValue("flatFaceWidthNumber", flatFaceWidth);
+
+      setText("baseRadiusValue", baseRadius);
+      setText("maxLiftValue", maxLift);
+      setText("rollerRadiusValue", rollerRadius);
+      setText("flatFaceWidthValue", flatFaceWidth);
+
+      setDisplay("rollerControl", followerType === "roller" ? "block" : "none");
+      setDisplay("flatControl", followerType === "flat" ? "block" : "none");
+
+      const removeButton = document.getElementById("removePoint");
+      if (removeButton) removeButton.disabled = selected === null || selected === 0 || selected === points.length - 1 || points.length <= 4;
+
+      const smoothButton = document.getElementById("toggleSmooth");
+      if (smoothButton) {
+        smoothButton.textContent = smoothing ? "Smooth motion on" : "Linear motion on";
+        smoothButton.classList.toggle("active", smoothing);
+      }
+
       document.querySelectorAll(".follower").forEach(b => b.classList.toggle("active", b.dataset.type === followerType));
-      document.getElementById("followerNote").innerHTML = followerType === "knife"
-        ? "<strong>Knife-edge:</strong><br>The cam profile follows the pitch curve directly."
-        : followerType === "roller"
-          ? "<strong>Roller:</strong><br>The cam profile is offset inward from the roller-centre pitch curve."
-          : "<strong>Flat-faced:</strong><br>The profile shown is an educational approximation of the flat-face contact envelope.";
+
+      const note = document.getElementById("followerNote");
+      if (note) {
+        note.innerHTML = followerType === "knife"
+          ? "<strong>Knife-edge:</strong><br>The cam profile follows the pitch curve directly."
+          : followerType === "roller"
+            ? "<strong>Roller:</strong><br>The cam profile is offset inward from the roller-centre pitch curve."
+            : "<strong>Flat-faced:</strong><br>The profile shown is an educational approximation of the flat-face contact envelope.";
+      }
+
       renderDiagram();
       renderCam();
     }
