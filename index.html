@@ -53,14 +53,67 @@ function polarToScreen(cx, cy, r, thetaDeg) {
   return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
 }
 
-function downloadHtml(points, baseRadius, maxLift, smoothing) {
-  const payload = { points, baseRadius, maxLift, smoothing };
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Interactive Cam Explorer</title><style>body{font-family:system-ui;margin:2rem;line-height:1.5;max-width:900px}pre{white-space:pre-wrap;background:#f4f4f5;padding:1rem;border-radius:12px}</style></head><body><h1>Interactive Cam Explorer</h1><p>This exported data can be embedded in the React app or used for student submissions.</p><pre>${JSON.stringify(payload, null, 2)}</pre></body></html>`;
-  const blob = new Blob([html], { type: "text/html" });
+function downloadDxf(points, baseRadius, maxLift, smoothing) {
+  const samples = Array.from({ length: 361 }, (_, i) => {
+    const theta = i;
+    const s = interp(points, theta, smoothing);
+    const r = baseRadius + s;
+    const a = rad(theta);
+    return {
+      x: r * Math.cos(a),
+      y: r * Math.sin(a),
+    };
+  });
+
+  const baseCircle = Array.from({ length: 361 }, (_, i) => {
+    const a = rad(i);
+    return {
+      x: baseRadius * Math.cos(a),
+      y: baseRadius * Math.sin(a),
+    };
+  });
+
+  const polyline = (layer, pts) => [
+    "0", "POLYLINE",
+    "8", layer,
+    "66", "1",
+    "70", "1",
+    ...pts.flatMap((p) => [
+      "0", "VERTEX",
+      "8", layer,
+      "10", p.x.toFixed(4),
+      "20", p.y.toFixed(4),
+      "30", "0",
+    ]),
+    "0", "SEQEND",
+  ];
+
+  const dxf = [
+    "0", "SECTION",
+    "2", "HEADER",
+    "9", "$ACADVER",
+    "1", "AC1009",
+    "0", "ENDSEC",
+    "0", "SECTION",
+    "2", "ENTITIES",
+    ...polyline("CAM_PROFILE", samples),
+    ...polyline("BASE_CIRCLE", baseCircle),
+    "0", "CIRCLE",
+    "8", "CENTRE_MARK",
+    "10", "0",
+    "20", "0",
+    "30", "0",
+    "40", "2",
+    "0", "ENDSEC",
+    "0", "EOF",
+  ].join("
+");
+
+  const blob = new Blob([dxf], { type: "application/dxf" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "cam-explorer-state.html";
+  a.download = "cam-profile.dxf";
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -255,7 +308,7 @@ export default function CamExplorer() {
               <div className="flex flex-wrap gap-2">
                 <Button onClick={() => setSmoothing(!smoothing)} variant={smoothing ? "default" : "secondary"}>{smoothing ? "Smooth motion on" : "Linear motion on"}</Button>
                 <Button variant="secondary" onClick={() => { setPoints(defaultPoints()); setSelected(null); }}><RotateCcw className="mr-2 h-4 w-4" />Reset</Button>
-                <Button variant="secondary" onClick={() => downloadHtml(sortedPoints, baseRadius, maxLift, smoothing)}><Download className="mr-2 h-4 w-4" />Export state</Button>
+                <Button variant="secondary" onClick={() => downloadDxf(sortedPoints, baseRadius, maxLift, smoothing)}><Download className="mr-2 h-4 w-4" />Export DXF</Button>
               </div>
             </CardContent>
           </Card>
